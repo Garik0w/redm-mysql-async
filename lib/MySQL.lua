@@ -1,9 +1,10 @@
 MySQL = {
     Async = {},
-    Sync = {},
+    ReadyTasks = {},
+    IsReady = false
 }
 
-local function safeParameters(params)
+MySQL.SafeParameters = function(params)
     if nil == params then
         return {[''] = ''}
     end
@@ -19,119 +20,18 @@ local function safeParameters(params)
 end
 
 ---
--- Execute a query with no result required, sync version
---
--- @param query
--- @param params
---
--- @return int Number of rows updated
---
-function MySQL.Sync.execute(query, params)
-    assert(type(query) == "string", "The SQL Query must be a string")
-
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_execute(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
----
--- Execute a query and fetch all results in an sync way
---
--- @param query
--- @param params
---
--- @return table Query results
---
-function MySQL.Sync.fetchAll(query, params)
-    assert(type(query) == "string", "The SQL Query must be a string")
-
-    local res = {}
-    local finishedQuery = false
-    exports['mysql-async']:mysql_fetch_all(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
-
----
--- Execute a query and fetch the first column of the first row, sync version
--- Useful for count function by example
---
--- @param query
--- @param params
---
--- @return mixed Value of the first column in the first row
---
-function MySQL.Sync.fetchScalar(query, params)
-    assert(type(query) == "string", "The SQL Query must be a string")
-
-    local res = ''
-    local finishedQuery = false
-    exports['mysql-async']:mysql_fetch_scalar(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
-
----
--- Execute a query and retrieve the last id insert, sync version
---
--- @param query
--- @param params
---
--- @return mixed Value of the last insert id
---
-function MySQL.Sync.insert(query, params)
-    assert(type(query) == "string", "The SQL Query must be a string")
-
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_insert(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
-
----
--- Execute a List of querys and returns bool true when all are executed successfully
---
--- @param querys
--- @param params
---
--- @return bool if the transaction was successful
---
-function MySQL.Sync.transaction(querys, params)
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_transaction(query, params, function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
-
----
 -- Execute a query with no result required, async version
 --
 -- @param query
 -- @param params
 -- @param func(int)
 --
-function MySQL.Async.execute(query, params, func)
-    assert(type(query) == "string", "The SQL Query must be a string")
+MySQL.Async.Execute = function(query, params, func)
+    Citizen.CreateThread(function()
+        assert(type(query) == "string", "The SQL Query must be a string")
 
-    exports['mysql-async']:mysql_execute(query, safeParameters(params), func)
+        exports['mysql-async']:mysql_execute(query, MySQL.SafeParameters(params), func)
+    end)
 end
 
 ---
@@ -141,10 +41,12 @@ end
 -- @param params
 -- @param func(table)
 --
-function MySQL.Async.fetchAll(query, params, func)
-    assert(type(query) == "string", "The SQL Query must be a string")
+MySQL.Async.FetchAll = function(query, params, func)
+    Citizen.CreateThread(function()
+        assert(type(query) == "string", "The SQL Query must be a string")
 
-    exports['mysql-async']:mysql_fetch_all(query, safeParameters(params), func)
+        exports['mysql-async']:mysql_fetch_all(query, MySQL.SafeParameters(params), func)
+    end)
 end
 
 ---
@@ -155,10 +57,12 @@ end
 -- @param params
 -- @param func(mixed)
 --
-function MySQL.Async.fetchScalar(query, params, func)
-    assert(type(query) == "string", "The SQL Query must be a string")
+MySQL.Async.FetchScalar = function(query, params, func)
+    Citizen.CreateThread(function()
+        assert(type(query) == "string", "The SQL Query must be a string")
 
-    exports['mysql-async']:mysql_fetch_scalar(query, safeParameters(params), func)
+        exports['mysql-async']:mysql_fetch_scalar(query, MySQL.SafeParameters(params), func)
+    end)
 end
 
 ---
@@ -168,32 +72,56 @@ end
 -- @param params
 -- @param func(string)
 --
-function MySQL.Async.insert(query, params, func)
-    assert(type(query) == "string", "The SQL Query must be a string")
+MySQL.Async.Insert = function(query, params, func)
+    Citizen.CreateThread(function()
+        assert(type(query) == "string", "The SQL Query must be a string")
 
-    exports['mysql-async']:mysql_insert(query, safeParameters(params), func)
+        exports['mysql-async']:mysql_insert(query, MySQL.SafeParameters(params), func)
+    end)
+end
+
+MySQL.Ready = function(callback)
+    if (MySQL.IsReady) then
+        Citizen.CreateThread(callback)
+    else
+        table.insert(MySQL.ReadyTasks, callback)
+    end
 end
 
 ---
--- Execute a List of querys and returns bool true when all are executed successfully
---
--- @param querys
--- @param params
--- @param func(bool)
---
-function MySQL.Async.transaction(querys, params, func)
-    return exports['mysql-async']:mysql_transaction(querys, params, func)
-end
+-- Handle MySQL.Ready(function() ... end) when mysql-async has been loaded
+---
+Citizen.CreateThread(function()
+    while not MySQL.IsReady do
+        local status = GetResourceState('mysql-async')
 
-function MySQL.ready (callback)
-    Citizen.CreateThread(function ()
-        -- add some more error handling
-        while GetResourceState('mysql-async') ~= 'started' do
-            Citizen.Wait(0)
+        if status == 'started' or status == 'starting' then
+            while GetResourceState('mysql-async') == 'starting' do
+                Citizen.Wait(0)
+            end
+
+            while not exports['mysql-async']:is_ready() do
+                Citizen.Wait(0)
+            end
+
+            MySQL.IsReady = true
+        else
+            return
         end
-        while not exports['mysql-async']:is_ready() do
-            Citizen.Wait(0)
+
+        Citizen.Wait(0)
+    end
+
+    if (MySQL.IsReady) then
+        for _, task in ipairs(MySQL.ReadyTasks) do
+            Citizen.CreateThread(task)
         end
-        callback()
-    end)
-end
+    end
+end)
+
+MySQL.Async.execute = MySQL.Async.Execute
+MySQL.Async.fetchAll = MySQL.Async.FetchAll
+MySQL.Async.fetchScalar = MySQL.Async.FetchScalar
+MySQL.Async.insert = MySQL.Async.Insert
+MySQL.Async.transaction = MySQL.Async.Transaction
+MySQL.ready = MySQL.Ready
