@@ -5,6 +5,6 @@ rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aw
 
 description 'Async for RedM, this is a completely rewritten resource by TigoDevelopment, will also work on FiveM'
 
-server_only 'yes'
-
-server_script 'mysql-async.js'
+server_scripts {
+    'mysql-async.js'
+}
