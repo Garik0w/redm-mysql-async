@@ -20,54 +20,17 @@ server_scripts {
 }
 ```
 
-## Async
+## API
 
-#### MySQL.Async.execute(string query, array params, function callback)
+#### `MySQL.Async.execute(query, parameters, callback)`
+#### `MySQL.Async.fetchAll(query, parameters, callback)`
+#### `MySQL.Async.fetchScalar(query, parameters, callback)`
+#### `MySQL.Async.transaction(queries, parameters, callback)`
+#### `MySQL.Sync.execute(query, parameters)`
+#### `MySQL.Sync.fetchAll(query, parameters)`
+#### `MySQL.Sync.fetchScalar(query, parameters)`
+#### `MySQL.Sync.transaction(queries, parameters, callback)`
+#### `MySQL.Ready(callback)`
 
-Works like `MySQL.Sync.execute` but will return immediatly instead of waiting for the execution of the query.
-To exploit the result of an async method you must use a callback function:
-
-```lua
-MySQL.Async.execute('SELECT SLEEP(10)', {}, function(rowsChanged)
-    print(rowsChanged)
-end)
-```
-
-#### MySQL.Async.fetchAll(string query, array params, function callback)
-
-Works like `MySQL.Sync.fetchAll` and provide callback like the `MySQL.Async.execute` method:
-
-```lua
-MySQL.Async.fetchAll('SELECT * FROM player', {}, function(players)
-    print(players[1].name)
-end)
-```
-
-#### MySQL.Async.fetchScalar(string query, array params, function callback)
-
-Same as before for the fetchScalar method.
-
-```lua
-MySQL.Async.fetchScalar("SELECT COUNT(1) FROM players", function(countPlayer)
-    print(countPlayer)
-end
-```
-
-#### MySQL.Ready(function callback)
-
-When mysql-async has been loaded, trigger callback function
-
-```lua
-MySQL.ready(function ()
-    print(MySQL.Sync.fetchScalar('SELECT @parameters', {
-        ['@parameters'] =  'string'
-    }))
-end)
-```
-
-## Features
-
- * Async
- * It uses the https://github.com/mysqljs/mysql library to provide a connection to your mysql server.
- * Create and close a connection for each query, the underlying library use a connection pool so only the
-mysql auth is done each time, old tcp connections are keeped in memory for performance reasons.
+## INFO
+It uses the https://github.com/warxander/vSql library to provide a connection to your mysql server.
