@@ -30,7 +30,7 @@ server_scripts {
 #### `MySQL.Sync.fetchAll(query, parameters)`
 #### `MySQL.Sync.fetchScalar(query, parameters)`
 #### `MySQL.Sync.transaction(queries, parameters, callback)`
-#### `MySQL.Ready(callback)`
+#### `MySQL.ready(callback)`
 
 ## INFO
 It uses the https://github.com/warxander/vSql library to provide a connection to your mysql server.
